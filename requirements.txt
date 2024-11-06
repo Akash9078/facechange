@@ -1,6 +1,6 @@
 # Core dependencies
 numpy
-opencv-python
+opencv-python-headless
 Pillow>=9.5.0
 scipy
 scikit-image
@@ -12,8 +12,7 @@ onnxruntime
 insightface>=0.7.3
 
 # Web Framework
-flask
-werkzeug
+streamlit>=1.39.0
 
 # Utilities
 addict
@@ -29,7 +28,7 @@ lpips
 # Optional - Development
 tb-nightly
 
-# Add these lines to the existing requirements.txt
+# Additional dependencies
 gdown>=4.7.1
 requests>=2.31.0
 tqdm>=4.65.0

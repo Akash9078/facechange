@@ -34,6 +34,24 @@ venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
+## System Requirements
+
+Before installing the Python dependencies, make sure to install the required system libraries:
+
+```bash
+# On Ubuntu/Debian
+sudo apt-get update && sudo apt-get install -y \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev
+
+# Or use the provided setup script
+chmod +x setup.sh
+./setup.sh
+```
+
 ## Model Files
 
 The application will automatically download the required model files on first run. The models will be stored in the following structure:
