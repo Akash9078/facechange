@@ -28,9 +28,6 @@ cd faceswapai2
 python3 -m venv venv
 
 # Activate the virtual environment
-source venv/bin/activate  
-
-# On Windows use:
 venv\Scripts\activate
 
 # Install required packages
