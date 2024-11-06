@@ -1,0 +1,35 @@
+# Core dependencies
+numpy
+opencv-python
+Pillow>=9.5.0
+scipy
+scikit-image
+
+# Deep Learning
+torch>=1.7.1
+torchvision
+onnxruntime
+insightface>=0.7.3
+
+# Web Framework
+flask
+werkzeug
+
+# Utilities
+addict
+future
+lmdb
+protobuf>=4.23.2
+pyyaml
+requests
+tqdm
+yapf
+lpips
+
+# Optional - Development
+tb-nightly
+
+# Add these lines to the existing requirements.txt
+gdown>=4.7.1
+requests>=2.31.0
+tqdm>=4.65.0
