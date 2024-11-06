@@ -10,7 +10,6 @@ from flask import Flask, request, send_file, render_template, jsonify
 from werkzeug.utils import secure_filename
 import base64
 from io import BytesIO
-import gdown
 import requests
 from tqdm import tqdm
 
@@ -31,31 +30,42 @@ app.config['RESULTS_FOLDER'] = RESULTS_FOLDER
 MODEL_PATHS = {
     'inswapper': {
         'path': './checkpoints/inswapper_128.onnx',
-        'url': 'https://drive.google.com/uc?id=1eu62GRjXWnwh-UsKKL2U0KVxA_6nRRZs'
+        'url': 'https://huggingface.co/deepinsight/insightface/resolve/main/models/inswapper_128.onnx'
     },
-    'buffalo_l': {
-        'path': './checkpoints/buffalo_l.zip',
-        'url': 'https://drive.google.com/uc?id=1-joBfqA2NfMxkfW4BF5q8mwqccf1EGC1'
+    'det_10g': {
+        'path': './checkpoints/models/buffalo_l/det_10g.onnx',
+        'url': 'https://huggingface.co/deepinsight/insightface/resolve/main/models/buffalo_l/det_10g.onnx'
+    },
+    '2d106det': {
+        'path': './checkpoints/models/buffalo_l/2d106det.onnx',
+        'url': 'https://huggingface.co/deepinsight/insightface/resolve/main/models/buffalo_l/2d106det.onnx'
+    },
+    '1k3d68': {
+        'path': './checkpoints/models/buffalo_l/1k3d68.onnx',
+        'url': 'https://huggingface.co/deepinsight/insightface/resolve/main/models/buffalo_l/1k3d68.onnx'
     }
 }
 
 def download_models():
     """Download required model files if they don't exist"""
-    os.makedirs('./checkpoints', exist_ok=True)
+    os.makedirs('./checkpoints/models/buffalo_l', exist_ok=True)
     
     for model_name, model_info in MODEL_PATHS.items():
         if not os.path.exists(model_info['path']):
             print(f"Downloading {model_name} model...")
             try:
-                gdown.download(model_info['url'], model_info['path'], quiet=False)
+                response = requests.get(model_info['url'], stream=True)
+                response.raise_for_status()
                 
-                # Extract if it's a zip file
-                if model_info['path'].endswith('.zip'):
-                    import zipfile
-                    with zipfile.ZipFile(model_info['path'], 'r') as zip_ref:
-                        zip_ref.extractall('./checkpoints')
-                    # Remove zip file after extraction
-                    os.remove(model_info['path'])
+                total_size = int(response.headers.get('content-length', 0))
+                block_size = 1024
+                progress_bar = tqdm(total=total_size, unit='iB', unit_scale=True)
+
+                with open(model_info['path'], 'wb') as f:
+                    for data in response.iter_content(block_size):
+                        progress_bar.update(len(data))
+                        f.write(data)
+                progress_bar.close()
                 
                 print(f"{model_name} model downloaded successfully!")
             except Exception as e:
