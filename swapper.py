@@ -12,6 +12,8 @@ import base64
 from io import BytesIO
 import requests
 from tqdm import tqdm
+import socket
+from contextlib import closing
 
 app = Flask(__name__)
 
@@ -237,6 +239,17 @@ def api_swap_faces():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+def find_available_port(start_port, max_attempts=100):
+    """Find an available port starting from start_port"""
+    for port in range(start_port, start_port + max_attempts):
+        with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as sock:
+            try:
+                sock.bind(('0.0.0.0', port))
+                return port
+            except socket.error:
+                continue
+    raise RuntimeError(f"Could not find an available port after {max_attempts} attempts")
+
 if __name__ == '__main__':
     # Initialize models when starting the server
     try:
@@ -247,7 +260,16 @@ if __name__ == '__main__':
         print(f"Error initializing models: {str(e)}")
         exit(1)
     
-    # Get port from environment variable or use 6000 as default
-    port = int(os.environ.get('PORT', 6000))
-    # Run app on 0.0.0.0 to allow external connections
-    app.run(host='0.0.0.0', port=port, debug=False)
+    # Get preferred port from environment variable or use 6000 as default
+    preferred_port = int(os.environ.get('PORT', 6000))
+    
+    try:
+        # Try to find an available port starting from the preferred port
+        port = find_available_port(preferred_port)
+        if port != preferred_port:
+            print(f"Port {preferred_port} is in use, using port {port} instead")
+        print(f"Server starting on port {port}")
+        app.run(host='0.0.0.0', port=port, debug=False)
+    except Exception as e:
+        print(f"Error starting server: {str(e)}")
+        exit(1)
