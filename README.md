@@ -1,6 +1,6 @@
 # FaceSwap AI
 
-A web-based face swapping application built with Python Flask and InsightFace. This tool allows users to seamlessly swap faces between two images using AI.
+A web-based face swapping application built with Python and Streamlit. This tool allows users to seamlessly swap faces between two images using AI.
 
 ## Features
 
@@ -8,31 +8,8 @@ A web-based face swapping application built with Python Flask and InsightFace. T
 - Drag and drop image upload
 - Real-time face swapping
 - Automatic model downloads
-- API endpoint support
 - Supports JPG and PNG formats
 - CPU-based processing (no GPU required)
-
-## Setup
-
-1. Clone the repository:
-
-```bash
-git clone https://github.com/Akash9078/faceswapai2.git
-cd faceswapai2
-```
-
-2. Set up Python environment:
-
-```bash
-# Create a Python virtual environment
-python3 -m venv venv
-
-# Activate the virtual environment
-venv\Scripts\activate
-
-# Install required packages
-pip install -r requirements.txt
-```
 
 ## System Requirements
 
@@ -52,12 +29,30 @@ chmod +x setup.sh
 ./setup.sh
 ```
 
+## Setup
+
+1. Set up Python environment:
+
+```bash
+# Create a Python virtual environment
+python3 -m venv venv
+
+# Activate the virtual environment
+# On Windows:
+venv\Scripts\activate
+# On Unix or MacOS:
+source venv/bin/activate
+
+# Install required packages
+pip install -r requirements.txt
+```
+
 ## Model Files
 
 The application will automatically download the required model files on first run. The models will be stored in the following structure:
 
 ```
-facechange/
+project_folder/
 ├── checkpoints/
 │   ├── inswapper_128.onnx
 │   └── models/
@@ -80,44 +75,33 @@ If you prefer to download the models manually, you can get them from these links
 
 ## Usage
 
-### Running the Web Interface
+### Running the Application
 
 ```bash
-python swapper.py
+streamlit run streamlit_app.py
 ```
 
-The server will start on port 6000. Open your browser and navigate to `http://localhost:6000`
-
-### Using the API
-
-The application provides a REST API endpoint for programmatic access:
-
-```bash
-curl -X POST \
-     -F "source=@path/to/source.jpg" \
-     -F "target=@path/to/target.jpg" \
-     http://localhost:6000/api/swap \
-     --output result.png
-```
+The application will start and automatically open in your default web browser.
 
 ## Project Structure
 
 ```
-facechange/
+project_folder/
+├── .streamlit/           # Streamlit configuration
+│   └── config.toml      
 ├── checkpoints/          # Model files directory
-├── templates/            # HTML templates
-│   └── index.html       # Web interface template
 ├── uploads/             # Temporary upload directory
 ├── results/             # Output directory
-├── swapper.py          # Main application file
-├── requirements.txt    # Python dependencies
-└── README.md
+├── streamlit_app.py     # Main application file
+├── requirements.txt     # Python dependencies
+├── setup.sh            # Setup script
+└── README.md           # Documentation
 ```
 
 ## Dependencies
 
 Key dependencies include:
-- Flask - Web framework
+- Streamlit - Web interface
 - InsightFace - Face analysis and swapping
 - OpenCV - Image processing
 - PIL - Image handling
@@ -126,22 +110,8 @@ Key dependencies include:
 
 See `requirements.txt` for a complete list of dependencies.
 
-## Environment Variables
-
-- `PORT` - Server port (default: 6000)
-- `CUDA_VISIBLE_DEVICES` - Set to -1 to force CPU usage
-
-## License
-
-[MIT License](LICENSE)
-
-## Contributing
-
-Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
-
 ## Acknowledgments
 
 This project uses:
 - [InsightFace](https://github.com/deepinsight/insightface) - Face analysis and swapping
-- [Flask](https://flask.palletsprojects.com/) - Web framework
-- Inspired by [sd-webui-roop](https://github.com/s0md3v/sd-webui-roop) and CodeFormer
+- [Streamlit](https://streamlit.io/) - Web interface
