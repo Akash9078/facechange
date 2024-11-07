@@ -4,6 +4,7 @@ opencv-python-headless
 Pillow>=9.5.0
 scipy
 scikit-image
+flask
 
 # Deep Learning
 torch>=1.7.1
