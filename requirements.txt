@@ -1,6 +1,6 @@
 # Core dependencies
 numpy
-opencv-python-headless
+opencv-python
 Pillow>=9.5.0
 scipy
 scikit-image
@@ -14,6 +14,7 @@ insightface>=0.7.3
 
 # Web Framework
 streamlit>=1.39.0
+fastapi
 
 # Utilities
 addict
@@ -33,3 +34,5 @@ tb-nightly
 gdown>=4.7.1
 requests>=2.31.0
 tqdm>=4.65.0
+python-multipart
+uvicorn
