@@ -1,8 +1,11 @@
 import os
 os.environ["OPENCV_HEADLESS"] = "1"
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from pathlib import Path
 from pydantic import BaseModel, HttpUrl
 import cv2
 import numpy as np
@@ -16,6 +19,11 @@ from contextlib import asynccontextmanager
 TEMP_DIR = "temp"
 os.makedirs(TEMP_DIR, exist_ok=True)
 
+# Create directories for static files and templates
+BASE_DIR = Path(__file__).resolve().parent
+STATIC_DIR = BASE_DIR / "static"
+TEMPLATES_DIR = BASE_DIR / "templates"
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: No startup logic needed
@@ -25,6 +33,13 @@ async def lifespan(app: FastAPI):
         os.remove(os.path.join(TEMP_DIR, file))
 
 app = FastAPI(lifespan=lifespan)
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+
+# Add route for the main page
+@app.get("/", response_class=HTMLResponse)
+async def read_root(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
 
 class ImageSwapRequest(BaseModel):
     source_image_url: HttpUrl
