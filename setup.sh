@@ -10,3 +10,4 @@ apt-get update && apt-get install -y \
 
 # Install Python dependencies
 pip install -r requirements.txt 
+pip install fastapi python-multipart uvicorn requests
