@@ -1,21 +1,21 @@
+import os
+os.environ["OPENCV_HEADLESS"] = "1"  # Set this before importing cv2
+
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, HttpUrl
-import cv2.headless as cv2
+import cv2  # Changed from cv2.headless
 import numpy as np
 import urllib.request
 from PIL import Image
 import io
 import uuid
-import os
 
 app = FastAPI()
 
 # Create a temporary directory for storing processed images
 TEMP_DIR = "temp"
 os.makedirs(TEMP_DIR, exist_ok=True)
-
-os.environ["OPENCV_HEADLESS"] = "1"
 
 class ImageSwapRequest(BaseModel):
     source_image_url: HttpUrl  # URL of the source image
