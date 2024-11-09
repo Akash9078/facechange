@@ -1,113 +1,70 @@
 import os
-os.environ["OPENCV_HEADLESS"] = "1"
-
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, HTMLResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
-from pathlib import Path
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, HttpUrl
-import cv2
-import numpy as np
-import urllib.request
+import requests
 from PIL import Image
 import io
 import uuid
 from contextlib import asynccontextmanager
+import numpy as np
+from swapper import process_face_swap  # Import the face swap function from swapper.py
 
 # Create a temporary directory for storing processed images
 TEMP_DIR = "temp"
 os.makedirs(TEMP_DIR, exist_ok=True)
 
-# Create directories for static files and templates
-BASE_DIR = Path(__file__).resolve().parent
-STATIC_DIR = BASE_DIR / "static"
-TEMPLATES_DIR = BASE_DIR / "templates"
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup: No startup logic needed
     yield
-    # Shutdown: Clean up temporary files
+    # Cleanup temp files on shutdown
     for file in os.listdir(TEMP_DIR):
         os.remove(os.path.join(TEMP_DIR, file))
 
 app = FastAPI(lifespan=lifespan)
-app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
-templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
-
-# Add route for the main page
-@app.get("/", response_class=HTMLResponse)
-async def read_root(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
 
 class ImageSwapRequest(BaseModel):
     source_image_url: HttpUrl
     target_image_url: HttpUrl
 
-def url_to_cv2(url):
-    """Convert image URL to CV2 format"""
+def download_image(url: str) -> Image.Image:
+    """Download image from URL and return PIL Image"""
     try:
-        # Download the image from URL
-        resp = urllib.request.urlopen(url)
-        image = np.asarray(bytearray(resp.read()), dtype="uint8")
-        img = cv2.imdecode(image, cv2.IMREAD_COLOR)
-        if img is None:
-            raise HTTPException(status_code=400, detail="Failed to load image from URL")
-        return img
+        response = requests.get(str(url))
+        response.raise_for_status()
+        return Image.open(io.BytesIO(response.content))
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error loading image from URL: {str(e)}")
-
-def detect_face(image):
-    """Detect face in an image and return the face landmarks"""
-    face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    faces = face_cascade.detectMultiScale(gray, 1.1, 4)
-    if len(faces) == 0:
-        raise HTTPException(status_code=400, detail="No face detected in the image")
-    return faces[0]
-
-def face_swap(source_img, target_img):
-    """Perform basic face swapping"""
-    # Detect faces in both images
-    source_face = detect_face(source_img)
-    target_face = detect_face(target_img)
-    
-    # Extract face region from source
-    x, y, w, h = source_face
-    source_face_img = source_img[y:y+h, x:x+w]
-    
-    # Extract face region from target
-    x2, y2, w2, h2 = target_face
-    
-    # Resize source face to match target face size
-    source_face_img = cv2.resize(source_face_img, (w2, h2))
-    
-    # Create a copy of target image
-    result = target_img.copy()
-    
-    # Replace the face region
-    result[y2:y2+h2, x2:x2+w2] = source_face_img
-    
-    return result
+        raise HTTPException(status_code=400, detail=f"Error downloading image: {str(e)}")
 
 @app.post("/swap-faces")
 async def swap_faces(request: ImageSwapRequest):
     try:
-        source_cv = url_to_cv2(str(request.source_image_url))
-        target_cv = url_to_cv2(str(request.target_image_url))
+        # Download images from URLs
+        source_img = download_image(request.source_image_url)
+        target_img = download_image(request.target_image_url)
         
-        result = face_swap(source_cv, target_cv)
+        # Process face swap using the function from swapper.py
+        result = process_face_swap(source_img, target_img)
         
-        temp_filename = f"{TEMP_DIR}/result_{uuid.uuid4()}.jpg"
-        cv2.imwrite(temp_filename, result)
+        if result is None:
+            raise HTTPException(status_code=400, detail="Face swap failed")
         
+        # Save the result
+        temp_filename = f"{TEMP_DIR}/result_{uuid.uuid4()}.png"
+        result.save(temp_filename)
+        
+        # Return the processed image
         return FileResponse(
             temp_filename,
-            media_type="image/jpeg",
-            filename="swapped_face.jpg",
+            media_type="image/png",
+            filename="swapped_face.png",
             background=None
         )
     
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return {"status": "healthy"}
