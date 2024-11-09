@@ -1,64 +1,97 @@
-import streamlit as st
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
+from pydantic import BaseModel, HttpUrl
 import cv2
 import numpy as np
+import urllib.request
 from PIL import Image
 import io
-import base64
+import uuid
+import os
 
-def get_image_download_link(img, filename, text):
-    """Generate a download link for an image"""
-    buffered = io.BytesIO()
-    img.save(buffered, format="JPEG")
-    img_str = base64.b64encode(buffered.getvalue()).decode()
-    href = f'<a href="data:file/jpg;base64,{img_str}" download="{filename}">{text}</a>'
-    return href
+app = FastAPI()
 
-def main():
-    st.title("Face Change App")
-    
-    # File uploader for source image
-    source_file = st.file_uploader("Upload Source Image (with face)", type=['jpg', 'jpeg', 'png'])
-    
-    # File uploader for target image
-    target_file = st.file_uploader("Upload Target Image (to replace face)", type=['jpg', 'jpeg', 'png'])
-    
-    if source_file and target_file:
-        # Convert uploaded files to PIL Images
-        source_image = Image.open(source_file)
-        target_image = Image.open(target_file)
-        
-        # Convert PIL images to numpy arrays for OpenCV
-        source_cv = cv2.cvtColor(np.array(source_image), cv2.COLOR_RGB2BGR)
-        target_cv = cv2.cvtColor(np.array(target_image), cv2.COLOR_RGB2BGR)
-        
-        # Display original images
-        col1, col2 = st.columns(2)
-        with col1:
-            st.subheader("Source Image")
-            st.image(source_image)
-        with col2:
-            st.subheader("Target Image")
-            st.image(target_image)
-        
-        if st.button("Swap Faces"):
-            try:
-                # Your face swapping logic here
-                # For example:
-                # result = face_swap(source_cv, target_cv)
-                
-                # Convert result back to PIL Image
-                # result_image = Image.fromarray(cv2.cvtColor(result, cv2.COLOR_BGR2RGB))
-                
-                # Display result
-                st.subheader("Result")
-                # st.image(result_image)
-                
-                # Add download button
-                # st.markdown(get_image_download_link(result_image, "swapped_face.jpg", "Download Result"), unsafe_allow_html=True)
-                
-                st.success("Face swap completed successfully!")
-            except Exception as e:
-                st.error(f"Error during face swap: {str(e)}")
+# Create a temporary directory for storing processed images
+TEMP_DIR = "temp"
+os.makedirs(TEMP_DIR, exist_ok=True)
 
-if __name__ == "__main__":
-    main() 
+class ImageSwapRequest(BaseModel):
+    source_image_url: HttpUrl  # URL of the source image
+    target_image_url: HttpUrl  # URL of the target image
+
+def url_to_cv2(url):
+    """Convert image URL to CV2 format"""
+    try:
+        # Download the image from URL
+        resp = urllib.request.urlopen(url)
+        image = np.asarray(bytearray(resp.read()), dtype="uint8")
+        img = cv2.imdecode(image, cv2.IMREAD_COLOR)
+        if img is None:
+            raise HTTPException(status_code=400, detail="Failed to load image from URL")
+        return img
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Error loading image from URL: {str(e)}")
+
+def detect_face(image):
+    """Detect face in an image and return the face landmarks"""
+    face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    faces = face_cascade.detectMultiScale(gray, 1.1, 4)
+    if len(faces) == 0:
+        raise HTTPException(status_code=400, detail="No face detected in the image")
+    return faces[0]
+
+def face_swap(source_img, target_img):
+    """Perform basic face swapping"""
+    # Detect faces in both images
+    source_face = detect_face(source_img)
+    target_face = detect_face(target_img)
+    
+    # Extract face region from source
+    x, y, w, h = source_face
+    source_face_img = source_img[y:y+h, x:x+w]
+    
+    # Extract face region from target
+    x2, y2, w2, h2 = target_face
+    
+    # Resize source face to match target face size
+    source_face_img = cv2.resize(source_face_img, (w2, h2))
+    
+    # Create a copy of target image
+    result = target_img.copy()
+    
+    # Replace the face region
+    result[y2:y2+h2, x2:x2+w2] = source_face_img
+    
+    return result
+
+@app.post("/swap-faces")
+async def swap_faces(request: ImageSwapRequest):
+    try:
+        # Convert URLs to CV2 format
+        source_cv = url_to_cv2(str(request.source_image_url))
+        target_cv = url_to_cv2(str(request.target_image_url))
+        
+        # Perform face swapping
+        result = face_swap(source_cv, target_cv)
+        
+        # Save the result to a temporary file
+        temp_filename = f"{TEMP_DIR}/result_{uuid.uuid4()}.jpg"
+        cv2.imwrite(temp_filename, result)
+        
+        # Return the file
+        return FileResponse(
+            temp_filename,
+            media_type="image/jpeg",
+            filename="swapped_face.jpg",
+            background=None
+        )
+    
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+# Optional: Cleanup endpoint to remove temporary files
+@app.on_event("shutdown")
+async def cleanup():
+    for file in os.listdir(TEMP_DIR):
+        os.remove(os.path.join(TEMP_DIR, file))
