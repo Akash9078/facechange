@@ -7,7 +7,7 @@ st.title("FaceSwap AI API Client")
 st.write("Enter image URLs to swap faces between them")
 
 # API endpoint
-API_URL = "http://localhost:8000/api/"
+API_URL = "http://localhost:8000/swap-face-url/"
 
 # URL inputs
 source_url = st.text_input("Enter source face image URL")
