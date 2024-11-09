@@ -1,25 +1,34 @@
 import os
-os.environ["OPENCV_HEADLESS"] = "1"  # Set this before importing cv2
+os.environ["OPENCV_HEADLESS"] = "1"
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, HttpUrl
-import cv2  # Changed from cv2.headless
+import cv2
 import numpy as np
 import urllib.request
 from PIL import Image
 import io
 import uuid
-
-app = FastAPI()
+from contextlib import asynccontextmanager
 
 # Create a temporary directory for storing processed images
 TEMP_DIR = "temp"
 os.makedirs(TEMP_DIR, exist_ok=True)
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: No startup logic needed
+    yield
+    # Shutdown: Clean up temporary files
+    for file in os.listdir(TEMP_DIR):
+        os.remove(os.path.join(TEMP_DIR, file))
+
+app = FastAPI(lifespan=lifespan)
+
 class ImageSwapRequest(BaseModel):
-    source_image_url: HttpUrl  # URL of the source image
-    target_image_url: HttpUrl  # URL of the target image
+    source_image_url: HttpUrl
+    target_image_url: HttpUrl
 
 def url_to_cv2(url):
     """Convert image URL to CV2 format"""
@@ -70,18 +79,14 @@ def face_swap(source_img, target_img):
 @app.post("/swap-faces")
 async def swap_faces(request: ImageSwapRequest):
     try:
-        # Convert URLs to CV2 format
         source_cv = url_to_cv2(str(request.source_image_url))
         target_cv = url_to_cv2(str(request.target_image_url))
         
-        # Perform face swapping
         result = face_swap(source_cv, target_cv)
         
-        # Save the result to a temporary file
         temp_filename = f"{TEMP_DIR}/result_{uuid.uuid4()}.jpg"
         cv2.imwrite(temp_filename, result)
         
-        # Return the file
         return FileResponse(
             temp_filename,
             media_type="image/jpeg",
@@ -91,9 +96,3 @@ async def swap_faces(request: ImageSwapRequest):
     
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-
-# Optional: Cleanup endpoint to remove temporary files
-@app.on_event("shutdown")
-async def cleanup():
-    for file in os.listdir(TEMP_DIR):
-        os.remove(os.path.join(TEMP_DIR, file))

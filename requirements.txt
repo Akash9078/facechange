@@ -14,7 +14,8 @@ insightface>=0.7.3
 
 # Web Framework
 streamlit>=1.39.0
-fastapi
+fastapi>=0.100.0
+uvicorn
 
 # Utilities
 addict
