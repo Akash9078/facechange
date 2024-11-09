@@ -1,70 +1,58 @@
-import os
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
-from pydantic import BaseModel, HttpUrl
+import streamlit as st
 import requests
 from PIL import Image
 import io
-import uuid
-from contextlib import asynccontextmanager
-import numpy as np
-from swapper import process_face_swap  # Import the face swap function from swapper.py
+from swapper import process_face_swap
 
-# Create a temporary directory for storing processed images
-TEMP_DIR = "temp"
-os.makedirs(TEMP_DIR, exist_ok=True)
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    yield
-    # Cleanup temp files on shutdown
-    for file in os.listdir(TEMP_DIR):
-        os.remove(os.path.join(TEMP_DIR, file))
-
-app = FastAPI(lifespan=lifespan)
-
-class ImageSwapRequest(BaseModel):
-    source_image_url: HttpUrl
-    target_image_url: HttpUrl
+st.title("Face Swap API")
 
 def download_image(url: str) -> Image.Image:
     """Download image from URL and return PIL Image"""
     try:
-        response = requests.get(str(url))
+        response = requests.get(url)
         response.raise_for_status()
         return Image.open(io.BytesIO(response.content))
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error downloading image: {str(e)}")
+        st.error(f"Error downloading image: {str(e)}")
+        return None
 
-@app.post("/swap-faces")
-async def swap_faces(request: ImageSwapRequest):
-    try:
-        # Download images from URLs
-        source_img = download_image(request.source_image_url)
-        target_img = download_image(request.target_image_url)
-        
-        # Process face swap using the function from swapper.py
-        result = process_face_swap(source_img, target_img)
-        
-        if result is None:
-            raise HTTPException(status_code=400, detail="Face swap failed")
-        
-        # Save the result
-        temp_filename = f"{TEMP_DIR}/result_{uuid.uuid4()}.png"
-        result.save(temp_filename)
-        
-        # Return the processed image
-        return FileResponse(
-            temp_filename,
-            media_type="image/png",
-            filename="swapped_face.png",
-            background=None
-        )
+def main():
+    # Input fields for image URLs
+    source_url = st.text_input("Source Image URL")
+    target_url = st.text_input("Target Image URL")
     
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    if st.button("Swap Faces"):
+        if source_url and target_url:
+            try:
+                # Download images
+                with st.spinner("Downloading images..."):
+                    source_img = download_image(source_url)
+                    target_img = download_image(target_url)
+                
+                if source_img and target_img:
+                    # Process face swap
+                    with st.spinner("Processing face swap..."):
+                        result = process_face_swap(source_img, target_img)
+                        
+                        if result:
+                            # Display result
+                            st.image(result, caption="Face Swap Result")
+                            
+                            # Add download button
+                            buf = io.BytesIO()
+                            result.save(buf, format="PNG")
+                            st.download_button(
+                                label="Download Result",
+                                data=buf.getvalue(),
+                                file_name="swapped_face.png",
+                                mime="image/png"
+                            )
+                        else:
+                            st.error("Face swap failed")
+            except Exception as e:
+                st.error(f"Error: {str(e)}")
+        else:
+            st.warning("Please enter both source and target image URLs")
 
-@app.get("/health")
-async def health_check():
-    """Health check endpoint"""
-    return {"status": "healthy"}
+if __name__ == "__main__":
+    main()
