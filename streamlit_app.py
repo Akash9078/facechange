@@ -1,7 +1,6 @@
 import streamlit as st
 from PIL import Image
 import io
-import requests
 from swapper import process_face_swap
 
 # Configure Streamlit page
@@ -11,23 +10,8 @@ st.set_page_config(
     layout="wide"
 )
 
-def process_images(source_url: str, target_url: str):
+def process_images(source_img: Image.Image, target_img: Image.Image):
     try:
-        # Download images with headers
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
-        
-        # Download source image
-        source_response = requests.get(source_url, headers=headers, verify=False)
-        source_response.raise_for_status()
-        source_img = Image.open(io.BytesIO(source_response.content))
-        
-        # Download target image
-        target_response = requests.get(target_url, headers=headers, verify=False)
-        target_response.raise_for_status()
-        target_img = Image.open(io.BytesIO(target_response.content))
-        
         # Process face swap
         result = process_face_swap(source_img, target_img)
         if result:
@@ -42,17 +26,31 @@ def process_images(source_url: str, target_url: str):
 
 # Main UI
 st.title("Face Swap App")
-st.write("Upload source and target image URLs to swap faces")
+st.write("Upload source and target images to swap faces")
 
-# Input fields
-source_url = st.text_input("Source Image URL (face to use)")
-target_url = st.text_input("Target Image URL (image to apply face to)")
+# File upload fields
+col1, col2 = st.columns(2)
+
+with col1:
+    st.subheader("Source Image (face to use)")
+    source_file = st.file_uploader("Choose source image", type=['jpg', 'jpeg', 'png'])
+    if source_file:
+        source_img = Image.open(source_file)
+        st.image(source_file, caption="Source Image", use_column_width=True)
+
+with col2:
+    st.subheader("Target Image (image to apply face to)")
+    target_file = st.file_uploader("Choose target image", type=['jpg', 'jpeg', 'png'])
+    if target_file:
+        target_img = Image.open(target_file)
+        st.image(target_file, caption="Target Image", use_column_width=True)
 
 if st.button("Swap Faces"):
-    if source_url and target_url:
+    if source_file is not None and target_file is not None:
         with st.spinner("Processing..."):
-            result_bytes = process_images(source_url, target_url)
+            result_bytes = process_images(source_img, target_img)
             if result_bytes:
+                st.success("Face swap completed!")
                 st.image(result_bytes, caption="Face Swap Result")
                 st.download_button(
                     label="Download Result",
@@ -61,4 +59,16 @@ if st.button("Swap Faces"):
                     mime="image/png"
                 )
     else:
-        st.warning("Please enter both source and target image URLs") 
+        st.warning("Please upload both source and target images")
+
+# Add information about supported file types
+st.sidebar.markdown("""
+### Supported File Types
+- JPG/JPEG
+- PNG
+
+### Tips
+1. Make sure faces are clearly visible
+2. Good lighting helps
+3. Front-facing photos work best
+""")
